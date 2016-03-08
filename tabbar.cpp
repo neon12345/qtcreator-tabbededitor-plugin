@@ -24,6 +24,7 @@ using namespace TabbedEditor::Internal;
 
 TabBar::TabBar(QWidget *parent) :
     QTabBar(parent)
+    , m_wheel(false)
 {
     setExpanding(false);
     setMovable(true);
@@ -86,6 +87,7 @@ void TabBar::activateEditor(int index)
     if (index < 0 || index >= m_editors.size())
         return;
 
+    setCurrentIndex(index);
     Core::EditorManager::instance()->activateEditor(m_editors[index]);
 }
 
@@ -172,12 +174,31 @@ void TabBar::contextMenuEvent(QContextMenuEvent *event)
     menu->addSeparator();
     Core::EditorManager::addNativeDirAndOpenWithActions(menu.data(), entry);
 
+    QAction* mouse_wheel = new QAction(tr("Mouse Wheel?"), this);
+    mouse_wheel->setCheckable(true);
+    mouse_wheel->setChecked(m_wheel);
+    menu->addAction(mouse_wheel);
+
+    connect(mouse_wheel, SIGNAL(triggered(bool)),
+                   this, SLOT(mouseWheelChange(bool)));
+
     menu->exec(mapToGlobal(event->pos()));
 }
 
-void TabBar::mouseReleaseEvent(QMouseEvent *event)
+void TabBar::mouseWheelChange(bool checked)
+{
+    m_wheel = checked;
+}
+
+void TabBar::wheelEvent(QWheelEvent *event)
+{
+    if(m_wheel)
+        QTabBar::wheelEvent(event);
+}
+
+void TabBar::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::MiddleButton)
         closeTab(tabAt(event->pos()));
-    QTabBar::mouseReleaseEvent(event);
+    QTabBar::mousePressEvent(event);
 }
