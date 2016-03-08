@@ -32,13 +32,17 @@ private slots:
     void prevTabAction();
     void nextTabAction();
 
+    void mouseWheelChange(bool checked);
+
 protected:
     void contextMenuEvent(QContextMenuEvent *event) override;
-    void mouseReleaseEvent(QMouseEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
 
 private:
     QList<Core::IEditor *> m_editors;
     QList<QShortcut *> m_shortcuts;
+    bool m_wheel;
 };
 
 } // namespace Internal
