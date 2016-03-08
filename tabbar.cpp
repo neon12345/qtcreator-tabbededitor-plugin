@@ -2,13 +2,19 @@
 
 #include "constants.h"
 
+#include <coreplugin/findplaceholder.h>
+#include <coreplugin/rightpane.h>
+#include <coreplugin/outputpane.h>
 #include <coreplugin/actionmanager/actionmanager.h>
 #include <coreplugin/actionmanager/command.h>
 #include <coreplugin/coreconstants.h>
 #include <coreplugin/editormanager/editormanager.h>
 #include <coreplugin/editormanager/ieditor.h>
+#include <coreplugin/modemanager.h>
+#include <coreplugin/navigationwidget.h>
 #include <coreplugin/fileiconprovider.h>
 #include <coreplugin/idocument.h>
+#include <coreplugin/imode.h>
 #include <projectexplorer/session.h>
 
 #include <QMenu>
@@ -25,6 +31,7 @@ using namespace TabbedEditor::Internal;
 TabBar::TabBar(QWidget *parent) :
     QTabBar(parent)
     , m_wheel(false)
+    , m_fullscreen(false)
 {
     setExpanding(false);
     setMovable(true);
@@ -49,6 +56,7 @@ TabBar::TabBar(QWidget *parent) :
 
     connect(this, &QTabBar::currentChanged, this, &TabBar::activateEditor);
     connect(this, &QTabBar::tabCloseRequested, this, &TabBar::closeTab);
+    connect(this, &QTabBar::tabBarDoubleClicked, this, &TabBar::fullscreenTab);
 
     ProjectExplorer::SessionManager *sm = ProjectExplorer::SessionManager::instance();
     connect(sm, &ProjectExplorer::SessionManager::sessionLoaded, [this, em]() {
@@ -80,6 +88,8 @@ TabBar::TabBar(QWidget *parent) :
                                                   Core::Context(Core::Constants::C_GLOBAL));
     nextTabCommand->setDefaultKeySequence(QKeySequence(tr("Ctrl+Shift+K")));
     connect(nextTabAction, SIGNAL(triggered()), this, SLOT(nextTabAction()));
+
+    getFullscreenState();
 }
 
 void TabBar::activateEditor(int index)
@@ -139,6 +149,60 @@ void TabBar::closeTab(int index)
 
     Core::EditorManager::instance()->closeEditor(m_editors.takeAt(index));
     removeTab(index);
+}
+
+void TabBar::getFullscreenState()
+{
+    Core::NavigationWidget* nw = Core::NavigationWidget::instance();
+    Core::RightPaneWidget* rw = Core::RightPaneWidget::instance();
+    Core::ModeManager* mm = Core::ModeManager::instance();
+
+    m_state.modeSelectorVisible = mm->isModeSelectorVisible();
+    m_state.rightPaneWidgetVisible = rw->isShown();
+    m_state.navigationWidgetVisible = nw->isShown();
+    m_state.modeManagerId = Core::ModeManager::currentMode()->id();
+}
+
+void TabBar::resetFullscreenState()
+{
+    Core::NavigationWidget* nw = Core::NavigationWidget::instance();
+    Core::RightPaneWidget* rw = Core::RightPaneWidget::instance();
+    Core::ModeManager* mm = Core::ModeManager::instance();
+
+    mm->setModeSelectorVisible(m_state.modeSelectorVisible);
+    rw->setShown(m_state.rightPaneWidgetVisible);
+    nw->setShown(m_state.navigationWidgetVisible);
+    Core::ModeManager::activateMode(m_state.modeManagerId);
+}
+
+void TabBar::fullscreenTab(int)
+{
+    Core::NavigationWidget* nw = Core::NavigationWidget::instance();
+    Core::RightPaneWidget* rw = Core::RightPaneWidget::instance();
+    Core::ModeManager* mm = Core::ModeManager::instance();
+
+    if(m_fullscreen)
+    {
+        resetFullscreenState();
+    }
+    else
+    {
+        getFullscreenState();
+        mm->setModeSelectorVisible(false);
+        rw->setShown(false);
+        nw->setShown(false);
+        Core::ModeManager::activateMode(Core::Id(Core::Constants::MODE_EDIT));
+
+        Core::FindToolBarPlaceHolder* findPane = Core::FindToolBarPlaceHolder::getCurrent();
+        if (findPane && findPane->isVisible())
+            findPane->hide();
+
+        Core::OutputPanePlaceHolder* outputPane = Core::OutputPanePlaceHolder::getCurrent();
+        if(outputPane && outputPane->isVisible())
+            emit outputPane->hide();
+    }
+
+    m_fullscreen = !m_fullscreen;
 }
 
 void TabBar::prevTabAction()
