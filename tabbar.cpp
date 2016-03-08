@@ -87,7 +87,6 @@ void TabBar::activateEditor(int index)
     if (index < 0 || index >= m_editors.size())
         return;
 
-    setCurrentIndex(index);
     Core::EditorManager::instance()->activateEditor(m_editors[index]);
 }
 
